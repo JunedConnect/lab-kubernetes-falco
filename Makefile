@@ -52,8 +52,7 @@ portforward:
 	@echo "Falco Sidekick: http://localhost:2802"
 	kubectl port-forward svc/falco-falcosidekick-ui -n falco 2802:2802 &
 	
-	@echo "\n Port-forwards started! Press Ctrl+C to stop all port-forwards."
-	wait
+	@echo "\n Port-forwards started!"
 
 
 upgrade-prometheus-stack:
@@ -76,6 +75,9 @@ upgrade-falco:
 	@echo "\n All upgrades complete!"
 
 destroy:
+	@echo "🛑 Stopping any running port-forwards..."
+	@pkill -f "kubectl port-forward" || true
+
 	@echo "Cleaning up Helm releases..."
 	helm uninstall falco -n falco || true
 	helm uninstall prom-graf -n monitor || true
