@@ -63,6 +63,8 @@ falco:
     ssl_certificate: /etc/falco/falco.pem
 
 
+tty: true # default is false. Set to true to enable real time logs
+
 # depenedency charts below
 
 # k8s-metacollector
@@ -101,6 +103,10 @@ k8s-metacollector:
 # falcosidekick
 falcosidekick:
   enabled: true
+  # config: # this is not needed unless you want falcosidekick to send alerts directly to alertmanager (i.e. without Prometheus)
+    # alertmanager:
+    #   hostport: "http://prom-graf-kube-prometheus-alertmanager.monitor:9093" # default is ""
+    #   endpoint: "/api/v2/alerts" # default is "/api/v1/alerts"
   serviceMonitor:
     additionalLabels: {}
     additionalProperties: {}
@@ -117,10 +123,9 @@ falcosidekick:
       port: 2802
       targetPort: 2802
       type: ClusterIP
-  prometheus:
-    extralabels: # default is ""
-      prometheus.custom.rule: true
   prometheusRules:
+    # additionalLabels: # this is not needed as I set Prometheus to select all PrometheusRules in the cluster
+    #   prometheus.custom.rule: "true"
     enabled: true
     alerts:
       alert:

@@ -1,9 +1,43 @@
+alertmanager:
+  apiVersion: v2
+  config:
+    global:
+      resolve_timeout: 5m
+      slack_api_url: "https://hooks.slack.com/services/xxx" # change to your webhook URL
+    route:
+      group_by: ['job']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      receiver: 'slack'
+      routes:
+      - match:
+          alertname: DeadMansSwitch
+        receiver: 'null'
+      - match:
+        receiver: 'slack'
+        continue: true
+    receivers:
+    - name: 'null'
+    - name: 'slack'
+      slack_configs:
+      - channel: '#test' # change to your desired channel
+        send_resolved: true
+        title: '[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] Monitoring Event Notification'
+        text: >-
+          {{ range .Alerts }}
+            *Alert:* {{ .Annotations.summary }} - `{{ .Labels.severity }}`
+            *Description:* {{ .Annotations.description }}
+            *Graph:* <{{ .GeneratorURL }}|:chart_with_upwards_trend:> *Runbook:* <{{ .Annotations.runbook }}|:spiral_note_pad:>
+            *Details:*
+            {{ range .Labels.SortedPairs }} • *{{ .Name }}:* `{{ .Value }}`
+            {{ end }}
+          {{ end }}
+
 prometheus:
   prometheusSpec:
-    serviceMonitorSelectorNilUsesHelmValues: false # default is true. If true, it will only use servicemonSelector from helm values.
-    serviceMonitorSelector: {} # default is {}
-    serviceMonitorNamespaceSelector: {} # default is {}
-    ruleSelectorNilUsesHelmValues: true # if true, it will only use ruleSelector (i.e the "release" label), unless you choose to add selectors yourself (see below)
-    ruleSelector: # default is {}
-      matchLabel:
-        prometheus.custom.rule: true
+    serviceMonitorSelectorNilUsesHelmValues: false # default is true. If true, it will only use servicemonitors from prometheus stack helm release
+    serviceMonitorSelector: {} # default is {} which selects all ServiceMonitors in the cluster
+    serviceMonitorNamespaceSelector: {} # default is {} which selects all ServiceMonitors in the cluster
+    ruleSelectorNilUsesHelmValues: false # default is true. If true, it will only use PrometheusRules from prometheus stack helm release
+    ruleSelector: {} # default is {} which selects all PrometheusRules in the cluster (if this is set with a label, then it will override "ruleSelectorNilUsesHelmValues" no matter what")
