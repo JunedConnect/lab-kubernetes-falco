@@ -1,4 +1,15 @@
-.PHONY: setup portforward upgrade-prometheus-stack upgrade-falco destroy
+.PHONY: help setup portforward upgrade-prometheus-stack upgrade-falco stop-portforward destroy
+
+PORT_FORWARD_PIDS := .portforward_pids
+
+help:
+	@echo "Available commands:"
+	@echo "  make setup                   	- Create Kind cluster and install Prometheus and Falco"
+	@echo "  make portforward             	- Start port-forwards to access services locally"
+	@echo "  make stop-portforward        	- Stop all running port-forwards"
+	@echo "  make upgrade-prometheus-stack - Upgrade Prometheus stack Helm release"
+	@echo "  make upgrade-falco           	- Upgrade Falco and Event Generator Helm releases"
+	@echo "  make destroy                 	- Stop port-forwards, uninstall Helm releases, and delete Kind cluster"
 
 setup:
 	@echo " Creating Kind cluster..."
@@ -44,16 +55,25 @@ portforward:
 	
 	@echo "Starting port-forwards..."
 	@echo "Prometheus: http://localhost:9090"
-	kubectl port-forward svc/prom-graf-kube-prometheus-prometheus -n monitor 9090:9090 &
+	@kubectl port-forward svc/prom-graf-kube-prometheus-prometheus -n monitor 9090:9090 & echo $$! >> $(PORT_FORWARD_PIDS)
 	@echo "Grafana: http://localhost:8080"
-	kubectl port-forward svc/prom-graf-grafana -n monitor 8080:80 &
+	@kubectl port-forward svc/prom-graf-grafana -n monitor 8080:80 & echo $$! >> $(PORT_FORWARD_PIDS)
 	@echo "Alertmanager: http://localhost:9093"
-	kubectl port-forward svc/prom-graf-kube-prometheus-alertmanager -n monitor 9093:9093 &
+	@kubectl port-forward svc/prom-graf-kube-prometheus-alertmanager -n monitor 9093:9093 & echo $$! >> $(PORT_FORWARD_PIDS)
 	@echo "Falco Sidekick: http://localhost:2802"
-	kubectl port-forward svc/falco-falcosidekick-ui -n falco 2802:2802 &
+	@kubectl port-forward svc/falco-falcosidekick-ui -n falco 2802:2802 & echo $$! >> $(PORT_FORWARD_PIDS)
 	
-	@echo "\n Port-forwards started!"
+	@echo "\n Port-forwards started! PIDs saved in $(PORT_FORWARD_PIDS)"
 
+stop-portforward:
+	@if [ -f $(PORT_FORWARD_PIDS) ]; then \
+		echo "Stopping port-forwards..."; \
+		xargs kill < $(PORT_FORWARD_PIDS); \
+		rm -f $(PORT_FORWARD_PIDS); \
+		echo "Port-forwards stopped."; \
+	else \
+		echo "No running port-forwards found."; \
+	fi
 
 upgrade-prometheus-stack:
 	@echo "\n Upgrading Prometheus Stack..."
@@ -75,6 +95,18 @@ upgrade-falco:
 	@echo "\n All upgrades complete!"
 
 destroy:
+
+	@echo "Starting full cleanup..."
+
+	@if [ -f $(PORT_FORWARD_PIDS) ]; then \
+		echo "Stopping port-forwards..."; \
+		xargs kill < $(PORT_FORWARD_PIDS); \
+		rm -f $(PORT_FORWARD_PIDS); \
+		echo "Port-forwards stopped."; \
+	else \
+		echo "No running port-forwards found."; \
+	fi
+
 	@echo "Cleaning up Helm releases..."
 	helm uninstall falco -n falco || true
 	helm uninstall prom-graf -n monitor || true
